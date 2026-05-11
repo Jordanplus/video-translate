@@ -1,0 +1,4 @@
+gradio>=4.44.0
+yt-dlp>=2025.1.15
+pysrt>=1.1.2
+requests>=2.32.0
