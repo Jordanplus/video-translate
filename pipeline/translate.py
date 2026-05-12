@@ -60,7 +60,11 @@ def check_backend(backend: str) -> None:
         r.raise_for_status()
     except Exception as e:
         if backend == "mtplx":
-            hint = "啟動： `mtplx start` 或 `mtplx quickstart --port 8000`"
+            hint = (
+                "啟動： `mtplx quickstart --model "
+                "Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed "
+                "--profile sustained --port 8000 --reasoning off`"
+            )
         else:
             hint = "啟動： `brew services start ollama` 或 `ollama serve`"
         raise BackendUnavailableError(

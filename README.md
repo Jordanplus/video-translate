@@ -62,7 +62,7 @@ WHISPER_MODEL=medium BACKEND=mtplx bash setup.sh
 
 ```bash
 # MTPLX（推薦，Apple Silicon 加速）
-mtplx quickstart --profile sustained --port 8000
+mtplx quickstart --model Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed --profile sustained --port 8000 --reasoning off
 
 # 或 Ollama
 brew services start ollama
@@ -124,12 +124,12 @@ video_translate/
 **Q：MTPLX 沒在跑？**
 
 ```bash
-mtplx quickstart --profile sustained --port 8000
+mtplx quickstart --model Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed --profile sustained --port 8000 --reasoning off
 # 或互動式啟動
 mtplx start
 ```
 
-GUI 會在連線失敗時顯示提示。32GB 機器**請用 `sustained` profile**，不要用 `burst`（會把所有資源吃光）。
+GUI 會在連線失敗時顯示提示。32GB 機器**請用 `sustained` profile**，不要用 `burst`（會把所有資源吃光）。`--reasoning off` 關掉 Qwen3.6 的 chain-of-thought，對「批次翻譯」可加速 ~17x，且翻譯品質不受影響。`--model` 必填，否則 mtplx 預設找不到模型名。
 
 **Q：Ollama 沒在跑？**
 

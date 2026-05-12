@@ -39,7 +39,7 @@ BACKENDS = {
         "health_path": "/models",
     },
 }
-DEFAULT_BACKEND = "ollama"
+DEFAULT_BACKEND = "mtplx"
 
 TRANSLATE_BATCH_SIZE = 15
 TRANSLATE_CONTEXT_WINDOW = 2

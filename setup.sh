@@ -73,8 +73,8 @@ if want_mtplx; then
   cat <<EOF
 
 ℹ️  MTPLX 服務需要手動啟動：
-    mtplx quickstart --profile sustained --port 8000
-  （首次跑會引導你選模型，之後背景常駐。32GB 機器建議用 sustained，不要用 burst。）
+    mtplx quickstart --model $MTPLX_MODEL --profile sustained --port 8000 --reasoning off
+  （--reasoning off 關掉 thinking，批次翻譯快 ~17x。32GB 機器建議用 sustained，不要用 burst。）
 
 EOF
 fi
@@ -106,7 +106,7 @@ bold "==> ✅ 完成"
 echo
 echo "下一步："
 if want_mtplx; then
-  echo "  1. 啟動 MTPLX：mtplx quickstart --profile sustained --port 8000"
+  echo "  1. 啟動 MTPLX：mtplx quickstart --model $MTPLX_MODEL --profile sustained --port 8000 --reasoning off"
 fi
 echo "  2. 啟動 GUI：  python3 app.py"
 echo "  3. 開瀏覽器：  http://127.0.0.1:7860"

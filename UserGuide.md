@@ -39,7 +39,7 @@ make mtplx
 MTPLX 服務需要**手動啟動**（不會跟著 daemon 跑）：
 
 ```bash
-mtplx quickstart --profile sustained --port 8000
+mtplx quickstart --model Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed --profile sustained --port 8000 --reasoning off
 ```
 
 驗證所有元件就緒：
@@ -225,7 +225,7 @@ make ollama MODELFILE_TRANSLATE=/path/to/file    # Modelfile 換位置
 
 兩條路：
 
-- 啟動 MTPLX：`mtplx quickstart --profile sustained --port 8000`
+- 啟動 MTPLX：`mtplx quickstart --model Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed --profile sustained --port 8000 --reasoning off`
 - 在 GUI 切到 Ollama 後端（Ollama daemon 預設常駐）
 
 ### 記憶體不夠 / 機器卡頓
