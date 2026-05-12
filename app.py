@@ -64,6 +64,7 @@ def _prepare_audio_from_url(
 def process(
     file_input: Optional[str],
     url_input: Optional[str],
+    srt_input: Optional[str],
     url_download_mode: str,
     whisper_model: str,
     backend_label: str,
@@ -71,52 +72,84 @@ def process(
     progress: gr.Progress = gr.Progress(),
 ):
     backend_key = _backend_key_from_label(backend_label)
-    if not file_input and not (url_input and url_input.strip()):
-        raise gr.Error("請上傳檔案 或 貼上 URL")
-    if file_input and url_input and url_input.strip():
-        raise gr.Error("請只使用其中一種輸入方式（檔案 或 URL）")
+    has_file = bool(file_input)
+    has_url = bool(url_input and url_input.strip())
+    has_srt = bool(srt_input)
+    n_inputs = sum([has_file, has_url, has_srt])
+    if n_inputs == 0:
+        raise gr.Error("請擇一輸入：上傳影片/音訊、貼上 URL、或上傳 .srt")
+    if n_inputs > 1:
+        raise gr.Error("請只使用其中一種輸入方式")
 
     work = _session_dir()
     full_video: Optional[Path] = None
     try:
         progress(0.0, desc="準備中…")
-        if file_input:
-            wav, base = _prepare_audio_from_local(file_input, work, progress)
+        if has_srt:
+            src = Path(srt_input)
+            if src.suffix.lower() != ".srt":
+                raise gr.Error("請上傳 .srt 字幕檔")
+            base = src.stem
+            items = srt.parse(src)
+            if not items:
+                raise gr.Error("SRT 檔為空或格式錯誤")
+            source_srt = work / f"{base}.source.srt"
+            srt.write(items, source_srt)
+            source_lang = "(來自外部 SRT)"
+            progress(0.65, desc=f"已載入 {len(items)} 條字幕")
         else:
-            audio_only = url_download_mode == "只下載音訊（較快）"
-            wav, base, full_video = _prepare_audio_from_url(
-                url_input.strip(), audio_only, work, progress
+            if has_file:
+                wav, base = _prepare_audio_from_local(file_input, work, progress)
+            else:
+                audio_only = url_download_mode == "只下載音訊（較快）"
+                wav, base, full_video = _prepare_audio_from_url(
+                    url_input.strip(), audio_only, work, progress
+                )
+
+            def trans_cb(frac: float, msg: str):
+                progress(0.30 + frac * 0.40, desc=msg)
+
+            trans_res = transcribe.transcribe(
+                wav,
+                model_name=whisper_model,
+                output_dir=work,
+                progress_cb=trans_cb,
             )
 
-        def trans_cb(frac: float, msg: str):
-            progress(0.30 + frac * 0.40, desc=msg)
+            items = srt.parse(trans_res.srt_path)
+            if not items:
+                raise gr.Error("辨識結果為空，影片可能沒有語音內容。")
 
-        trans_res = transcribe.transcribe(
-            wav,
-            model_name=whisper_model,
-            output_dir=work,
-            progress_cb=trans_cb,
-        )
+            source_srt = work / f"{base}.source.srt"
+            srt.write(items, source_srt)
+            source_lang = trans_res.language or "auto"
 
-        items = srt.parse(trans_res.srt_path)
-        if not items:
-            raise gr.Error("辨識結果為空，影片可能沒有語音內容。")
-
-        source_srt = work / f"{base}.source.srt"
-        srt.write(items, source_srt)
-
-        progress(0.70, desc=f"開始翻譯（{trans_res.language or 'auto'} → 繁中）…")
+        progress(0.70, desc=f"開始翻譯（{source_lang} → 繁中）…")
 
         def tr_cb(frac: float, msg: str):
             progress(0.70 + frac * 0.28, desc=msg)
 
         original_texts = [it.text for it in items]
-        zh_texts = translate.translate_lines(
-            original_texts,
-            backend=backend_key,
-            model=backend_model,
-            progress_cb=tr_cb,
-        )
+        try:
+            zh_texts = translate.translate_lines(
+                original_texts,
+                backend=backend_key,
+                model=backend_model,
+                progress_cb=tr_cb,
+            )
+        except (translate.BackendUnavailableError, translate.TranslationError) as tx_err:
+            preview_orig = srt.preview(items, limit=20)
+            downloads = [str(source_srt)]
+            if full_video and full_video.exists():
+                downloads.append(str(full_video))
+            info_md = (
+                f"⚠️ **翻譯失敗 — 但原文字幕已產出**  \n"
+                f"**來源語言**：`{source_lang}`  \n"
+                f"**字幕條數**：{len(items)}  \n"
+                f"**原文檔**：`{source_srt.name}`（可從下方下載，重跑無須再做語音辨識）  \n\n"
+                f"錯誤訊息：{tx_err}"
+            )
+            return info_md, preview_orig, "(翻譯失敗 — 換後端後可重跑，或用外部工具翻譯此 .srt)", downloads
 
         zh_items = srt.replace_texts(items, zh_texts)
         zh_srt = work / f"{base}.zh-Hant.srt"
@@ -132,7 +165,7 @@ def process(
             downloads.append(str(full_video))
 
         info_md = (
-            f"**辨識來源語言**：`{trans_res.language or 'auto'}`  \n"
+            f"**來源語言**：`{source_lang}`  \n"
             f"**字幕條數**：{len(items)}  \n"
             f"**輸出檔名**：`{zh_srt.name}`"
         )
@@ -170,6 +203,15 @@ def build_ui() -> gr.Blocks:
                             choices=["只下載音訊（較快）", "下載完整影片"],
                             value="只下載音訊（較快）",
                             label="下載模式",
+                        )
+                    with gr.Tab("📝 字幕檔（.srt 直接翻譯）"):
+                        srt_input = gr.File(
+                            label="SRT 字幕檔（任意語言 → 繁中）",
+                            file_types=[".srt"],
+                            type="filepath",
+                        )
+                        gr.Markdown(
+                            "*跳過語音辨識，直接翻譯。適合：先前翻譯失敗、外部來源字幕、手工字幕。*"
                         )
             with gr.Column(scale=1):
                 whisper_model = gr.Dropdown(
@@ -218,6 +260,7 @@ def build_ui() -> gr.Blocks:
             inputs=[
                 file_input,
                 url_input,
+                srt_input,
                 url_download_mode,
                 whisper_model,
                 backend,
