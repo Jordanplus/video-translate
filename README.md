@@ -107,6 +107,18 @@ video_translate/
 └── whisper.cpp/            # setup.sh clone & 編譯
 ```
 
+## Model 儲存位置
+
+所有大型 model 集中存放在 `~/LLM/models/`，原 runtime 路徑用 symlink 接回，所以不必改任何 runtime 設定：
+
+| Model | 實際位置 | Symlink 來源 | 大小 |
+|---|---|---|---|
+| Whisper `ggml-large-v3.bin` | `~/LLM/models/ggml-large-v3.bin` | `whisper.cpp/models/ggml-large-v3.bin` | 2.9 GB |
+| Ollama (`qwen3.6_translate` 等) | `~/LLM/models/ollama/` | `~/.ollama/models` | 21 GB |
+| MTPLX (`Qwen3.6-27B-MTPLX-Optimized-Speed`) | `~/LLM/models/mtplx/` | `~/.mtplx/models` | 15 GB |
+
+重新下載模型（`make whisper`、`ollama pull`、`mtplx pull`）會寫進 symlink 的目標，無需額外處理。
+
 ## 常見問題
 
 **Q：MTPLX 沒在跑？**
