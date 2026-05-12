@@ -33,13 +33,13 @@ BACKENDS = {
     "ollama": {
         "label": "Ollama (Qwen3 etc.)",
         "base_url": "http://127.0.0.1:11434/v1",
-        "default_model": "qwen3:14b",
-        "models": ["qwen3:14b", "qwen3:32b", "qwen3:8b"],
+        "default_model": "qwen3.6_translate",
+        "models": ["qwen3.6_translate", "qwen3:14b", "qwen3:32b", "qwen3:8b"],
         "supports_json_format": True,
         "health_path": "/models",
     },
 }
-DEFAULT_BACKEND = "mtplx"
+DEFAULT_BACKEND = "ollama"
 
 TRANSLATE_BATCH_SIZE = 15
 TRANSLATE_CONTEXT_WINDOW = 2

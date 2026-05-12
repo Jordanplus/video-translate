@@ -15,27 +15,72 @@
 | MTPLX 後端支援 | ✅ 完成 | OpenAI-compatible，預設 backend |
 | `README.md` / `PLAN.md` / `STATUS.md` | ✅ 完成 | |
 
-**目前狀態**：程式碼完成、commit 完成（`4432114`），等待在 MacBook 上實機驗證。
+**目前狀態**：MacBook 實機 e2e 跑通（Ollama 後端）。MTPLX 後端阻塞中。
 
 ---
 
-## 待驗證項目（部署到 MacBook M5 32GB 後）
+## 實測結果（2026-05-13）
 
-### A. 環境安裝（`setup.sh`）
+### 環境
+- MacBook M5 32GB，macOS 15.4 (Darwin 25.4.0)
+- 測試素材：`nsps-808.mp4` 內第 10 分鐘起 60s clip（日文對白）
 
-- [ ] Homebrew 裝得起 ffmpeg、cmake
-- [ ] `brew install youssofal/mtplx/mtplx` 成功
-- [ ] `mtplx pull Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed` 完成（~16GB）
-- [ ] whisper.cpp clone & cmake build 成功（Metal 加速應自動偵測）
-- [ ] `ggml-large-v3.bin` 下載成功（~3GB）
-- [ ] `pip install -r requirements.txt` 全裝完
+### Pipeline 計時
+
+| 階段 | 耗時 | 備註 |
+|---|---|---|
+| audio (ffmpeg) | 0.1 s | |
+| whisper transcribe (large-v3, Metal) | 9.4 s | ~6.4× 實時；自動偵測 `ja` |
+| translate (Ollama Qwen3.6, **think=false**) | 192.6 s | 14 條全部成功 |
+| write SRT | 0.0 s | |
+| **總計** | **202 s（60s 影片 ≈ 3.4× 實時）** | |
+
+### Ollama tokens/sec（qwen3.6_translate, 22GB）
+- Prompt eval: **243 tok/s**
+- Generation: **23.3 tok/s**
+
+### 翻譯品質抽樣
+- そうカリカリすんなよ → 別那麼火大啦 ✅
+- 理想と現実ってやつだよ → 這就是理想跟現實的落差啦 ✅
+- まああの人の言う通りにすれば間違いないから → 嘛，只要照他說的做就不會出錯 ✅
+
+---
+
+## 重要發現 / 修正
+
+### 1. Reasoning model 必須關 thinking（`pipeline/translate.py`）
+Qwen3.6 reasoning 模型預設無限 chain-of-thought，把所有 num_predict 燒在 `<think>...</think>` 區塊，`response` 是空字串。表現：14 條字幕 batch 跑 34 分鐘只成功 1 條。
+- 修法：Ollama backend 的 chat payload 加 `"think": false`
+- 效果：34 分鐘 → 3.2 分鐘（**10.7× 加速**），成功率 1/14 → 14/14
+- 注意：這是 per-request 旗標，不影響其他用戶（coding agent 仍可開 thinking）
+
+### 2. MTPLX 後端目前無法啟動（阻塞中）
+`mtplx inspect` 認模型（tier=verified, mtp_layers=1），但 `mtplx quickstart` 進 loading 階段就拒絕（tier=no-MTP）。
+- 已試：profile `sustained`、`performance-cold`、`--no-mtp`、`--unsafe-force-unverified` — 4 種 flag 組合全失敗
+- 已試：mtplx 0.3.3 → 降到 0.3.2 → 同樣失敗
+- 結論：疑似 MTPLX 0.3.x 的 inspect / runtime gate 邏輯不一致
+- 暫時對策：`DEFAULT_BACKEND = "ollama"`
+
+### 3. 已知小 bug
+- Whisper 偶爾轉錯日文罕用詞（測試中「逆鱗 げきりん」變成「激霖」）；不是翻譯端問題
+
+---
+
+## 待驗證項目
+
+### A. 環境安裝（`setup.sh` / `Makefile`）
+
+- [x] Homebrew 裝起 ffmpeg、cmake
+- [x] `brew install youssofal/mtplx/mtplx` 成功（但 runtime 有 bug，見上）
+- [x] `mtplx pull` 完成（16.4 GB）
+- [x] whisper.cpp Metal 編譯成功
+- [x] `ggml-large-v3.bin` 下載（2.9 GB）
+- [x] `pip install -r requirements.txt`
 
 ### B. 後端服務
 
-- [ ] `mtplx quickstart --profile sustained --port 8000` 能起來
-- [ ] `curl http://127.0.0.1:8000/v1/models` 回 200
-- [ ] **記憶體實測**：在 32GB 機器上載入模型，活動監視器看 unified memory 用量是否在 80% 以下
-- [ ] 若 MTPLX 過於吃緊：fallback 改用 `BACKEND=ollama` + qwen3:14b（~10GB）
+- [ ] ~~MTPLX 啟動~~ — **阻塞**：見上「重要發現 #2」
+- [x] Ollama daemon 健康、`qwen3.6_translate:latest` 載入正常（23 GB RSS）
 
 ### C. 模組單元驗證（建議手動跑）
 

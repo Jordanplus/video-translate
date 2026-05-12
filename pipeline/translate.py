@@ -125,6 +125,8 @@ def _call_chat(
     }
     if cfg.get("supports_json_format"):
         payload["response_format"] = {"type": "json_object"}
+    if backend == "ollama":
+        payload["think"] = False
 
     try:
         r = requests.post(
