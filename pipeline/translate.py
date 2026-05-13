@@ -25,6 +25,8 @@ from config import (
     TRANSLATE_TEMPERATURE,
 )
 
+from .srt import is_repetition_hallucination
+
 
 class BackendUnavailableError(RuntimeError):
     pass
@@ -207,20 +209,6 @@ def stop_backend(backend: str) -> bool:
     return True
 
 
-def _looks_like_repetition_hallucination(
-    text: str, min_len: int = 15, max_unique_ratio: float = 0.05
-) -> bool:
-    """Detect whisper hallucinations like '女女女...' or '痛い痛い痛い...'.
-
-    Uses unique-char-ratio so both single-char and short-ngram repetitions
-    are caught (e.g. 200 chars of '痛い' has only 2 unique chars → ratio 0.01).
-    """
-    s = text.strip()
-    if len(s) < min_len:
-        return False
-    return len(set(s)) / len(s) <= max_unique_ratio
-
-
 def translate_lines(
     lines: List[str],
     backend: str = DEFAULT_BACKEND,
@@ -236,7 +224,7 @@ def translate_lines(
     if not lines:
         return []
 
-    skip_mask = [_looks_like_repetition_hallucination(s) for s in lines]
+    skip_mask = [is_repetition_hallucination(s) for s in lines]
     results: List[str] = [""] * len(lines)
     total = len(lines)
     pos = 0

@@ -46,6 +46,20 @@ def replace_texts(
     return new_items
 
 
+def is_repetition_hallucination(
+    text: str, min_len: int = 15, max_unique_ratio: float = 0.05
+) -> bool:
+    """Detect whisper hallucinations like '女女女...' or '痛い痛い痛い...'.
+
+    Uses unique-char ratio so both single-char and short-ngram repetitions
+    are caught (e.g. 200 chars of '痛い' has only 2 unique chars → ratio 0.01).
+    """
+    s = text.strip()
+    if len(s) < min_len:
+        return False
+    return len(set(s)) / len(s) <= max_unique_ratio
+
+
 def tighten_long_segments(
     items: List[pysrt.SubRipItem],
     max_chars_per_second: float,
@@ -56,16 +70,23 @@ def tighten_long_segments(
     Whisper.cpp + VAD sometimes emits one short utterance covering a long
     VAD speech region (a few characters spanning tens of seconds or minutes).
     For each item whose duration exceeds `trigger_s`, cap it to
-    `chars / max_chars_per_second + 1.0s`. Returns number tightened.
+    `chars / max_chars_per_second + 1.0s`. Repetition hallucinations are
+    measured by unique-char count, not raw length, so '痛い×100' caps to
+    ~2 chars worth of duration. Returns number tightened.
     """
     n_changed = 0
     for it in items:
         duration_s = (it.end.ordinal - it.start.ordinal) / 1000.0
         if duration_s <= trigger_s:
             continue
-        chars = len(it.text.strip())
-        if chars == 0:
+        stripped = it.text.strip()
+        if not stripped:
             continue
+        chars = (
+            len(set(stripped))
+            if is_repetition_hallucination(stripped)
+            else len(stripped)
+        )
         expected_s = chars / max_chars_per_second + 1.0
         if duration_s <= expected_s:
             continue
