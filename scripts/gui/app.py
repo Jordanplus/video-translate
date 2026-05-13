@@ -219,7 +219,7 @@ def build_ui() -> gr.Blocks:
                         )
                         url_download_mode = gr.Radio(
                             choices=["只下載音訊（較快）", "下載完整影片"],
-                            value="只下載音訊（較快）",
+                            value="下載完整影片",
                             label="下載模式",
                         )
                     with gr.Tab("📝 字幕檔（.srt 直接翻譯）"):
