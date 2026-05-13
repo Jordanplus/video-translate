@@ -19,7 +19,7 @@ VENV               := $(PROJECT_ROOT)/.venv
 PY                 := $(VENV)/bin/python3
 PIP                := $(VENV)/bin/pip
 
-WHISPER_DIR        := $(PROJECT_ROOT)/whisper.cpp
+WHISPER_DIR        := $(PROJECT_ROOT)/third-party/whisper.cpp
 WHISPER_BIN        := $(WHISPER_DIR)/build/bin/whisper-cli
 WHISPER_MODEL      ?= large-v3
 WHISPER_MODEL_FILE := $(WHISPER_DIR)/models/ggml-$(WHISPER_MODEL).bin
@@ -37,7 +37,7 @@ MTPLX_MODEL        ?= Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed
 all: brew-deps whisper python ollama
 	@echo ""
 	@echo "✅ 全部就緒"
-	@echo "啟動 GUI:  $(PY) app.py"
+	@echo "啟動 GUI:  $(PY) scripts/gui/app.py"
 	@echo "想用 MTPLX 後端：make mtplx 後執行 mtplx quickstart --profile sustained --port 8000"
 
 help:
@@ -148,4 +148,4 @@ check:
 clean:
 	rm -rf $(VENV)
 	rm -rf $(WHISPER_DIR)/build
-	@echo "cleaned: .venv + whisper.cpp/build（模型保留）"
+	@echo "cleaned: .venv + third-party/whisper.cpp/build（模型保留）"

@@ -1,10 +1,10 @@
 """Central configuration for the video-translate tool."""
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # ---- Whisper / whisper.cpp ----
-WHISPER_CPP_DIR = PROJECT_ROOT / "whisper.cpp"
+WHISPER_CPP_DIR = PROJECT_ROOT / "third-party" / "whisper.cpp"
 WHISPER_BINARY_CANDIDATES = [
     WHISPER_CPP_DIR / "build" / "bin" / "whisper-cli",
     WHISPER_CPP_DIR / "build" / "bin" / "main",
@@ -64,9 +64,13 @@ TRANSLATE_BATCH_SIZE = 25
 TRANSLATE_CONTEXT_WINDOW = 2
 TRANSLATE_TEMPERATURE = 0.3
 
-# ---- Working dir ----
-WORK_DIR = PROJECT_ROOT / "work"
-WORK_DIR.mkdir(exist_ok=True)
+# ---- Output dirs ----
+OUTPUT_DIR = PROJECT_ROOT / "output"
+OUTPUT_INTERMEDIATE_DIR = OUTPUT_DIR / "intermediate"
+INPUTS_DIR = PROJECT_ROOT / "inputs"
+OUTPUT_DIR.mkdir(exist_ok=True)
+OUTPUT_INTERMEDIATE_DIR.mkdir(exist_ok=True)
+INPUTS_DIR.mkdir(exist_ok=True)
 
 
 def find_whisper_binary() -> Path | None:

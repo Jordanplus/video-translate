@@ -25,7 +25,7 @@ from config import (
     TRANSLATE_TEMPERATURE,
 )
 
-from .srt import is_repetition_hallucination
+from postprocess.srt_ops import is_repetition_hallucination
 
 
 class BackendUnavailableError(RuntimeError):

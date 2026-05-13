@@ -71,7 +71,7 @@ brew services start ollama
 **啟動 GUI**：
 
 ```bash
-python3 app.py
+python3 scripts/gui/app.py
 ```
 
 開啟瀏覽器： <http://127.0.0.1:7860>
@@ -94,18 +94,26 @@ python3 app.py
 
 ```
 video_translate/
-├── app.py                  # Gradio GUI
-├── pipeline/
-│   ├── download.py         # yt-dlp wrapper
-│   ├── audio.py            # ffmpeg wrapper
-│   ├── transcribe.py       # whisper.cpp wrapper
-│   ├── translate.py        # Ollama / Qwen3 wrapper
-│   └── srt.py              # SRT I/O
-├── config.py               # 預設參數
+├── scripts/
+│   ├── config.py             # 預設參數、路徑常數
+│   ├── gui/app.py            # Gradio GUI entry
+│   ├── cli/run_full.py       # 一次性 batch driver
+│   ├── audio/extract.py      # ffmpeg wrapper
+│   ├── download/ytdlp.py     # yt-dlp wrapper
+│   ├── whisper/transcribe.py # whisper.cpp + VAD wrapper
+│   ├── translate/translate.py# OpenAI-compatible 雙後端
+│   ├── postprocess/srt_ops.py# SRT I/O、tighten、hallucination guard
+│   └── test/                 # smoke / benchmark 腳本
+├── inputs/                   # 使用者影片（gitignored）
+├── output/                   # zh-Hant.srt 等成果
+│   ├── intermediate/         # wav cache、whisper 原始 SRT
+│   └── test/                 # smoke / benchmark 輸出
+├── third-party/whisper.cpp/  # make whisper 安裝
 ├── requirements.txt
-├── setup.sh
-└── whisper.cpp/            # setup.sh clone & 編譯
+└── Makefile / setup.sh
 ```
+
+詳細目錄職責見 `PLAN.md` 的「資料結構規範」。
 
 ## Model 儲存位置
 

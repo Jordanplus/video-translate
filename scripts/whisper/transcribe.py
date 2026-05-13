@@ -17,7 +17,7 @@ from config import (
     find_whisper_binary,
 )
 
-from . import srt as srt_io
+from postprocess import srt_ops as srt_io
 
 
 class WhisperNotInstalledError(RuntimeError):

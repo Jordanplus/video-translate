@@ -14,6 +14,54 @@
 
 ---
 
+## 資料結構規範（2026-05-13）
+
+頂層目錄職責固定如下，不可混用：
+
+```
+video-translate/
+├── scripts/                ← 所有 Python 程式碼
+│   ├── config.py             共享設定（路徑、後端、tuning 常數）
+│   ├── gui/
+│   │   └── app.py            Gradio GUI entry
+│   ├── cli/
+│   │   └── run_full.py       一次性 batch driver
+│   ├── audio/
+│   │   └── extract.py        ffmpeg → 16kHz mono wav
+│   ├── download/
+│   │   └── ytdlp.py          yt-dlp 包裝
+│   ├── whisper/
+│   │   └── transcribe.py     whisper.cpp CLI 包裝（含 VAD flags）
+│   ├── translate/
+│   │   └── translate.py      OpenAI-compatible 雙後端共用一個檔
+│   ├── postprocess/
+│   │   └── srt_ops.py        SRT parse/write、tighten、hallucination detect
+│   └── test/
+│       ├── benchmark.py
+│       └── mlx_smoke.py
+├── output/                 ← 所有 pipeline 輸出
+│   ├── <session>/            正式跑：zh-Hant.srt + source.srt
+│   ├── intermediate/         wav cache、whisper 中間 SRT
+│   └── test/                 smoke / benchmark 輸出（gitignored）
+├── inputs/                 ← 使用者影片來源（gitignored，user-provided）
+├── third-party/            ← 外部相依（gitignored 內容、build artifacts）
+│   └── whisper.cpp/          含 ggml-large-v3.bin 與 ggml-silero-v6.2.0.bin
+├── Makefile / setup.sh     ← 安裝與工作流入口
+├── *.md                    ← README / PLAN / STATUS / UserGuide / CLAUDE
+├── requirements.txt
+└── .gitignore
+```
+
+**規範**：
+
+- **只搬不拆**：translate.py 內兩個 backend 共用同一條 OpenAI-compatible 邏輯，不拆 mtplx.py / ollama.py；whisper transcribe 中 VAD 是兩個 CLI flag，不另立 vad.py
+- **scripts/test/ 是測試程式**；**output/test/ 是測試輸出**，兩者分開
+- **inputs/ 與 output/intermediate/ gitignored**（大檔、user-specific）
+- **third-party/whisper.cpp/ gitignored**（由 `make whisper` 安裝）
+- **Makefile 與 *.md 保留在 root**（user-facing 入口與文件）
+
+---
+
 ## 技術選型
 
 | 元件 | 選擇 | 原因 |

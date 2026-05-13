@@ -1,11 +1,14 @@
 """Gradio GUI: video → Traditional Chinese SRT."""
 from __future__ import annotations
 
-import shutil
+import sys
 import tempfile
 import traceback
 from pathlib import Path
 from typing import Optional
+
+SCRIPTS_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import gradio as gr
 
@@ -15,15 +18,19 @@ from config import (
     DEFAULT_WHISPER_LANGUAGE,
     DEFAULT_WHISPER_MODEL,
     ENABLE_VAD_DEFAULT,
+    OUTPUT_INTERMEDIATE_DIR,
     WHISPER_LANGUAGES,
     WHISPER_MODELS,
-    WORK_DIR,
 )
-from pipeline import audio, download, srt, transcribe, translate
+from audio import extract as audio
+from download import ytdlp as download
+from postprocess import srt_ops as srt
+from whisper import transcribe
+from translate import translate
 
 
 def _session_dir() -> Path:
-    d = Path(tempfile.mkdtemp(prefix="vt_", dir=str(WORK_DIR)))
+    d = Path(tempfile.mkdtemp(prefix="vt_", dir=str(OUTPUT_INTERMEDIATE_DIR)))
     return d
 
 
