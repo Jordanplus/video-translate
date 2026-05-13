@@ -74,6 +74,7 @@ def process(
     enable_vad: bool,
     backend_label: str,
     backend_model: str,
+    stop_backend_after: bool,
     progress: gr.Progress = gr.Progress(),
 ):
     backend_key = _backend_key_from_label(backend_label)
@@ -182,6 +183,9 @@ def process(
     except Exception as e:
         tb = traceback.format_exc()
         raise gr.Error(f"處理失敗：{e}\n\n{tb[-1500:]}")
+    finally:
+        if stop_backend_after:
+            translate.stop_backend(backend_key)
 
 
 def build_ui() -> gr.Blocks:
@@ -247,6 +251,10 @@ def build_ui() -> gr.Blocks:
                     value=BACKENDS[DEFAULT_BACKEND]["default_model"],
                     label="翻譯模型",
                 )
+                stop_backend_after = gr.Checkbox(
+                    value=False,
+                    label="跑完關閉 MTPLX backend（釋放 ~22 GB RAM）",
+                )
 
                 def _update_models(label):
                     key = _backend_key_from_label(label)
@@ -283,6 +291,7 @@ def build_ui() -> gr.Blocks:
                 enable_vad,
                 backend,
                 backend_model,
+                stop_backend_after,
             ],
             outputs=[info_md, preview_orig, preview_zh, downloads],
         )

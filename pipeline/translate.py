@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from typing import Callable, List, Optional
 
 import requests
@@ -189,6 +190,21 @@ def _translate_single(line: str, backend: str, model: str) -> str:
         return str(parsed.get("text") or parsed.get("translation") or "").strip()
     except TranslationError:
         return ""
+
+
+def stop_backend(backend: str) -> bool:
+    """Stop a long-lived backend server to free its RAM.
+
+    Currently only handles MTPLX (a Python server started via
+    `mtplx quickstart`). Ollama runs as a macOS service and is left alone.
+    Returns True if a stop command was issued.
+    """
+    if backend != "mtplx":
+        return False
+    subprocess.run(
+        ["pkill", "-f", "mtplx quickstart"], check=False
+    )
+    return True
 
 
 def _looks_like_repetition_hallucination(
