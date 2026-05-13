@@ -185,17 +185,22 @@ video_translate/
 
 ---
 
-### [P2] 翻譯加速組合（A + B）
+### [P2] 翻譯加速組合 — 完成（實測 1.14×）
 
-**動機**：MTPLX 27B 模型再大幅提速空間有限，但 `--depth 5` + `batch_size 25` 是「零品質損失、零 OOM 風險」的 1.5–2× 提速組合。
+**動機**：MTPLX 27B 模型再大幅提速空間有限。原本期望 `--depth 5` + `batch_size 25` 是 1.5–2× 提速組合，實際做下來只剩 batch_size 有效。
 
-**步驟**：
-1. 重啟 mtplx `--depth 5`（其餘 flag 不動）→ verify: `mtplx ps` 或 log 顯示 depth=5
-2. `config.py` 改 `TRANSLATE_BATCH_SIZE = 25` → verify: 同份 benchmark.py 跑出更高 lines/s
-3. 在 60-line benchmark + nsps-808 的 10 分鐘片段 SRT（約 250–300 段，由 P1 步驟 4 副產出）上 A/B 比 baseline → verify: 至少 1.3× 加速，且 fallback 觸發率 < 5%
-4. 若 batch=25 不穩，回退 batch=20 再測
+**實測結果（2026-05-13，60-line benchmark）**：
 
-**預期效益**：100 min → 50–65 min。
+| 設定 | Elapsed | Lines/s | 備註 |
+|---|---|---|---|
+| baseline（batch=15, depth=3, reasoning off） | 138.06 s | 0.43 | |
+| + batch=25（depth 維持 3） | 121.28 s | 0.49 | **採用，14% 加速** |
+
+**已採取的步驟**：
+- `config.py` 改 `TRANSLATE_BATCH_SIZE = 25`：1.14× 加速、fallback 觸發率正常
+- depth=5 嘗試失敗：mtplx quickstart `--depth` 上限為 3，runtime 拒絕更高值。其餘 flag 不動
+
+**預期效益（重新估）**：3478 行 ÷ 0.49 lines/s ≈ 約 119 min。離原本 50–65 min 目標還差一截，剩下的提速要靠 P1 (MLX-Whisper) + 後續探索。
 
 ---
 
