@@ -68,6 +68,7 @@ def transcribe(
         "-m", str(model_path),
         "-f", str(wav),
         "-l", language,
+        "-mc", "0",
         "-osrt",
         "-of", str(out_base),
         "-t", str(threads),

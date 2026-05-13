@@ -12,7 +12,9 @@ import gradio as gr
 from config import (
     BACKENDS,
     DEFAULT_BACKEND,
+    DEFAULT_WHISPER_LANGUAGE,
     DEFAULT_WHISPER_MODEL,
+    WHISPER_LANGUAGES,
     WHISPER_MODELS,
     WORK_DIR,
 )
@@ -67,6 +69,7 @@ def process(
     srt_input: Optional[str],
     url_download_mode: str,
     whisper_model: str,
+    whisper_language: str,
     backend_label: str,
     backend_model: str,
     progress: gr.Progress = gr.Progress(),
@@ -113,6 +116,7 @@ def process(
                 wav,
                 model_name=whisper_model,
                 output_dir=work,
+                language=whisper_language,
                 progress_cb=trans_cb,
             )
 
@@ -219,6 +223,11 @@ def build_ui() -> gr.Blocks:
                     value=DEFAULT_WHISPER_MODEL,
                     label="Whisper 模型",
                 )
+                whisper_language = gr.Dropdown(
+                    choices=[(v, k) for k, v in WHISPER_LANGUAGES.items()],
+                    value=DEFAULT_WHISPER_LANGUAGE,
+                    label="影片語言（auto 偵測錯誤時請手動指定）",
+                )
                 backend_labels = [cfg["label"] for cfg in BACKENDS.values()]
                 default_label = BACKENDS[DEFAULT_BACKEND]["label"]
                 backend = gr.Dropdown(
@@ -263,6 +272,7 @@ def build_ui() -> gr.Blocks:
                 srt_input,
                 url_download_mode,
                 whisper_model,
+                whisper_language,
                 backend,
                 backend_model,
             ],

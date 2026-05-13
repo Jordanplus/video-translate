@@ -19,6 +19,19 @@ WHISPER_MODELS = {
 }
 DEFAULT_WHISPER_MODEL = "large-v3"
 
+WHISPER_LANGUAGES = {
+    "auto": "自動偵測",
+    "ja": "日文 / Japanese",
+    "zh": "中文 / Chinese",
+    "en": "英文 / English",
+    "ko": "韓文 / Korean",
+    "es": "西班牙文 / Spanish",
+    "fr": "法文 / French",
+    "de": "德文 / German",
+    "ru": "俄文 / Russian",
+}
+DEFAULT_WHISPER_LANGUAGE = "auto"
+
 # ---- Translation backends ----
 # Both backends speak OpenAI-compatible chat completions API.
 BACKENDS = {
