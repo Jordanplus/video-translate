@@ -153,3 +153,82 @@ video_translate/
 ## 待驗證（在 MacBook 上）
 
 見 `STATUS.md`。
+
+---
+
+## Roadmap（效能優化）
+
+實測基準：M5 32GB，`nsps-808.mp4`（2h09m 影片 → 3478 段字幕）
+
+| 階段 | 現況 | 觀察 |
+|---|---|---|
+| Whisper large-v3（whisper.cpp） | ~4h | ~0.5× realtime，慢於預期 |
+| 翻譯（MTPLX + Qwen3.6-27B，reasoning off） | ~100 min 估 | ~16 tok/s、~26s/batch（15 行） |
+| 翻譯（Ollama + qwen3.6_translate） | 已驗證至少慢 17× | Batch JSON 在 Ollama 上穩定性差，會 fallback 到單行重試 |
+
+### [P1] 換 MLX-Whisper backend
+
+**動機**：whisper.cpp 在 M5 上跑 large-v3 約 0.5× realtime，瓶頸明顯。MLX-Whisper（Apple 自家 framework）原生吃 unified memory + AMX，社群實測在 M-series 上對 large-v3 比 whisper.cpp 快 1.5–2.5×。
+
+**步驟**：
+1. `pip install mlx-whisper` → verify: `python -c "import mlx_whisper"` 不報錯
+2. 在 `pipeline/transcribe.py` 加 `MLX` backend 分支（不刪 whisper.cpp，保留為 fallback），用 `mlx_whisper.transcribe(audio, model="mlx-community/whisper-large-v3-mlx")` → verify: jfk.wav 跑出與 whisper.cpp 一致的英文片段
+3. `config.py` 加 `WHISPER_BACKEND={mlx|whispercpp}` 開關，預設 `mlx` → verify: GUI 選擇器跟著切
+4. 截取 nsps-808.mp4 的 10 分鐘片段做 A/B（`ffmpeg -ss 0 -t 600 -i nsps-808.mp4 -c copy nsps-808-10min.mp4`），記錄 wall time → verify: MLX 顯著快於 whisper.cpp，且 SRT 段數差異 < 5%
+5. 文件：`README.md` / `UserGuide.md` 補 MLX-Whisper 安裝與切換說明
+
+**預期效益**：2h 影片從 ~4h 縮到 1.5–2.5h。
+
+**風險**：
+- 首次跑會 download MLX 版 model（~3 GB，HuggingFace），需放到 `~/LLM/models/` 並 symlink
+- Python API 不像 whisper.cpp CLI 有 `progress=NN%` 字串，progress bar 要改成輪詢 callback
+
+---
+
+### [P2] 翻譯加速組合（A + B）
+
+**動機**：MTPLX 27B 模型再大幅提速空間有限，但 `--depth 5` + `batch_size 25` 是「零品質損失、零 OOM 風險」的 1.5–2× 提速組合。
+
+**步驟**：
+1. 重啟 mtplx `--depth 5`（其餘 flag 不動）→ verify: `mtplx ps` 或 log 顯示 depth=5
+2. `config.py` 改 `TRANSLATE_BATCH_SIZE = 25` → verify: 同份 benchmark.py 跑出更高 lines/s
+3. 在 60-line benchmark + nsps-808 的 10 分鐘片段 SRT（約 250–300 段，由 P1 步驟 4 副產出）上 A/B 比 baseline → verify: 至少 1.3× 加速，且 fallback 觸發率 < 5%
+4. 若 batch=25 不穩，回退 batch=20 再測
+
+**預期效益**：100 min → 50–65 min。
+
+---
+
+### [P3]（探索）`--profile performance-cold --max` 或 burst
+
+**動機**：MTPLX 的 burst-class profile 可能進一步提速 1.5–2×，但 README 明確警告 32GB 機器禁用 burst。
+
+**評估前提**：要等 P1+P2 完成後仍嫌慢才做。
+
+**步驟**：
+1. 不關 Ollama，先測 `--profile performance-cold` 是否會超記憶體 → verify: `vm_stat` 在跑滿 batch 時 free pages 仍 > 1GB
+2. 若安全，加 `--max` 再測 → verify: 同上
+3. 任一階段 OOM 立即退回 sustained
+
+**風險**：可能爆記憶體導致系統 swap、kernel panic。
+
+---
+
+### [P4]（探索）VAD 預過濾靜音段
+
+**動機**：whisper.cpp 內建 silero VAD，可跳過靜音段。對講座/訪談類影片（含大量空白）可省 20–50% 辨識時間，與 backend 選擇正交。
+
+**步驟**：
+1. `pipeline/transcribe.py` 加 `--vad` flag 與 silero model 路徑 → verify: 輸出 SRT 缺漏不超過真實有聲段 5%
+2. 在 nsps-808 上對比有無 VAD 的 wall time → verify: 至少 1.2× 加速
+
+**僅在 P1 (MLX-Whisper) 沒有自帶等價 VAD 時才需要。**
+
+---
+
+### 優先順序總結
+
+1. **P1 MLX-Whisper**：當前最大瓶頸是 whisper，預期效益最大
+2. **P2 翻譯 depth+batch**：低風險、易實作、效益確定
+3. **P3 burst profile**：高風險，僅在 P1+P2 後仍不夠快時試
+4. **P4 VAD**：跟 P1 可能重複，視 MLX-Whisper 預處理能力決定
