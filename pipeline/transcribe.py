@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from config import (
+    ENABLE_VAD_DEFAULT,
     WHISPER_MODELS,
     WHISPER_MODELS_DIR,
+    WHISPER_VAD_MODEL,
     find_whisper_binary,
 )
 
@@ -41,6 +43,7 @@ def transcribe(
     language: str = "auto",
     progress_cb: Optional[Callable[[float, str], None]] = None,
     threads: int = 8,
+    vad: bool = ENABLE_VAD_DEFAULT,
 ) -> TranscriptionResult:
     """Run whisper.cpp and produce an SRT file. Returns (srt_path, detected_language)."""
     binary = find_whisper_binary()
@@ -74,6 +77,12 @@ def transcribe(
         "-t", str(threads),
         "-pp",
     ]
+    if vad:
+        if not WHISPER_VAD_MODEL.exists():
+            raise WhisperNotInstalledError(
+                f"VAD model missing: {WHISPER_VAD_MODEL}. Run `make vad-model` to download."
+            )
+        cmd += ["--vad", "-vm", str(WHISPER_VAD_MODEL)]
 
     detected_lang: Optional[str] = None
     proc = subprocess.Popen(

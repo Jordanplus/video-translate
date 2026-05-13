@@ -23,6 +23,8 @@ WHISPER_DIR        := $(PROJECT_ROOT)/whisper.cpp
 WHISPER_BIN        := $(WHISPER_DIR)/build/bin/whisper-cli
 WHISPER_MODEL      ?= large-v3
 WHISPER_MODEL_FILE := $(WHISPER_DIR)/models/ggml-$(WHISPER_MODEL).bin
+WHISPER_VAD_MODEL  ?= silero-v6.2.0
+WHISPER_VAD_FILE   := $(WHISPER_DIR)/models/ggml-$(WHISPER_VAD_MODEL).bin
 
 OLLAMA_BASE        ?= fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
 OLLAMA_TARGET      ?= qwen3.6_translate
@@ -42,7 +44,7 @@ help:
 	@echo "Targets:"
 	@echo "  all          install brew deps + whisper.cpp + python venv + ollama 翻譯模型"
 	@echo "  brew-deps    install ffmpeg, cmake"
-	@echo "  whisper      clone+build whisper.cpp (Metal)；下載 ggml-$(WHISPER_MODEL).bin"
+	@echo "  whisper      clone+build whisper.cpp (Metal)；下載 ggml-$(WHISPER_MODEL).bin + VAD"
 	@echo "  python       建立 .venv 並裝 requirements.txt"
 	@echo "  ollama       pull base + create $(OLLAMA_TARGET)"
 	@echo "  mtplx        (optional) install mtplx + pull $(MTPLX_MODEL)"
@@ -70,8 +72,11 @@ $(WHISPER_BIN): | $(WHISPER_DIR)/.git
 $(WHISPER_MODEL_FILE): | $(WHISPER_DIR)/.git
 	cd $(WHISPER_DIR) && bash models/download-ggml-model.sh $(WHISPER_MODEL)
 
-whisper: brew-deps $(WHISPER_BIN) $(WHISPER_MODEL_FILE)
-	@echo "✓ whisper.cpp + ggml-$(WHISPER_MODEL).bin"
+$(WHISPER_VAD_FILE): | $(WHISPER_DIR)/.git
+	cd $(WHISPER_DIR) && bash models/download-vad-model.sh $(WHISPER_VAD_MODEL)
+
+whisper: brew-deps $(WHISPER_BIN) $(WHISPER_MODEL_FILE) $(WHISPER_VAD_FILE)
+	@echo "✓ whisper.cpp + ggml-$(WHISPER_MODEL).bin + ggml-$(WHISPER_VAD_MODEL).bin"
 
 # ---- Python venv ----
 $(VENV)/bin/python3:
@@ -124,6 +129,7 @@ check:
 	@printf "cmake             : "; command -v cmake >/dev/null && echo "✓" || echo "✗"
 	@printf "whisper binary    : "; [ -f $(WHISPER_BIN) ] && echo "✓" || echo "✗  → make whisper"
 	@printf "whisper model     : "; [ -f $(WHISPER_MODEL_FILE) ] && echo "✓  $$(du -h $(WHISPER_MODEL_FILE) | awk '{print $$1}')" || echo "✗  → make whisper"
+	@printf "whisper VAD model : "; [ -f $(WHISPER_VAD_FILE) ] && echo "✓  $$(du -h $(WHISPER_VAD_FILE) | awk '{print $$1}')" || echo "✗  → make whisper"
 	@printf "python venv       : "; [ -x $(PY) ] && echo "✓  $$($(PY) --version)" || echo "✗  → make python"
 	@printf "gradio installed  : "; $(PY) -c "import gradio" 2>/dev/null && echo "✓" || echo "✗  → make python"
 	@printf "ollama daemon     : "; curl -s --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null && echo "✓" || echo "✗  → brew services start ollama"

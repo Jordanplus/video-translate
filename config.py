@@ -19,6 +19,9 @@ WHISPER_MODELS = {
 }
 DEFAULT_WHISPER_MODEL = "large-v3"
 
+WHISPER_VAD_MODEL = WHISPER_MODELS_DIR / "ggml-silero-v6.2.0.bin"
+ENABLE_VAD_DEFAULT = True
+
 WHISPER_LANGUAGES = {
     "auto": "自動偵測",
     "ja": "日文 / Japanese",

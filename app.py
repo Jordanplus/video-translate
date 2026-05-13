@@ -14,6 +14,7 @@ from config import (
     DEFAULT_BACKEND,
     DEFAULT_WHISPER_LANGUAGE,
     DEFAULT_WHISPER_MODEL,
+    ENABLE_VAD_DEFAULT,
     WHISPER_LANGUAGES,
     WHISPER_MODELS,
     WORK_DIR,
@@ -70,6 +71,7 @@ def process(
     url_download_mode: str,
     whisper_model: str,
     whisper_language: str,
+    enable_vad: bool,
     backend_label: str,
     backend_model: str,
     progress: gr.Progress = gr.Progress(),
@@ -118,6 +120,7 @@ def process(
                 output_dir=work,
                 language=whisper_language,
                 progress_cb=trans_cb,
+                vad=enable_vad,
             )
 
             items = srt.parse(trans_res.srt_path)
@@ -228,6 +231,10 @@ def build_ui() -> gr.Blocks:
                     value=DEFAULT_WHISPER_LANGUAGE,
                     label="影片語言（auto 偵測錯誤時請手動指定）",
                 )
+                enable_vad = gr.Checkbox(
+                    value=ENABLE_VAD_DEFAULT,
+                    label="啟用 VAD 預過濾（跳過靜音、降低 hallucination）",
+                )
                 backend_labels = [cfg["label"] for cfg in BACKENDS.values()]
                 default_label = BACKENDS[DEFAULT_BACKEND]["label"]
                 backend = gr.Dropdown(
@@ -273,6 +280,7 @@ def build_ui() -> gr.Blocks:
                 url_download_mode,
                 whisper_model,
                 whisper_language,
+                enable_vad,
                 backend,
                 backend_model,
             ],

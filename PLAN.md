@@ -219,15 +219,24 @@ video_translate/
 
 ---
 
-### [P4]（探索）VAD 預過濾靜音段
+### [P4] VAD 預過濾靜音段 — 完成（實測 1.68× + 副作用是改善品質）
 
 **動機**：whisper.cpp 內建 silero VAD，可跳過靜音段。對講座/訪談類影片（含大量空白）可省 20–50% 辨識時間，與 backend 選擇正交。
 
-**步驟**：
-1. `pipeline/transcribe.py` 加 `--vad` flag 與 silero model 路徑 → verify: 輸出 SRT 缺漏不超過真實有聲段 5%
-2. 在 nsps-808 上對比有無 VAD 的 wall time → verify: 至少 1.2× 加速
+**實測結果（2026-05-13，10-min 日文 sample，silero-v6.2.0）**：
 
-**P1 既然放棄，P4 變成下一個 whisper 加速候選。**
+| 設定 | Wall time | Segments | Hallucination |
+|---|---|---|---|
+| baseline `-mc 0` | 41.5 s | 115 | 開頭/結尾各幾條 outro hallucination（`おやすみなさい`、`ご視聴ありがとうございました` ×2、`あなた`、結尾 `はい`） |
+| **VAD + `-mc 0`** | **24.75 s** | 96 | 開頭/結尾 hallucination 全消除，從真實第一句 1:52 開始 |
+
+**結論**：1.68× 加速，且 19 段差距全是被消除的開頭/結尾靜音 hallucination。VAD 是品質與速度雙贏，**設為預設開啟**。
+
+**已採取的步驟**：
+- `pipeline/transcribe.py` 加 `vad` 參數，預設 `True`
+- `config.py` 加 `WHISPER_VAD_MODEL`、`ENABLE_VAD_DEFAULT`
+- `app.py` 加 GUI checkbox（預設勾選）
+- `Makefile` 把 `ggml-silero-v6.2.0.bin` 加入 `whisper` target，`make check` 顯示 VAD model 狀態
 
 ---
 
@@ -235,5 +244,5 @@ video_translate/
 
 1. ~~**P1 MLX-Whisper**~~：實測加速僅 1.09× + hallucination 較重，不採用
 2. **P2 翻譯 depth+batch**：✅ 完成（batch=25，1.14×；depth=5 不支援）
-3. **P4 VAD pre-filter**：whisper 仍是大頭，現在升為下一張要打的牌
-4. **P3 burst profile**：高風險，僅在 P4 後仍不夠快時試
+3. **P4 VAD pre-filter**：✅ 完成（1.68× + 開頭/結尾 hallucination 全消）
+4. **P3 burst profile**：高風險，僅在還不夠快時試
