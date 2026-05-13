@@ -22,6 +22,9 @@ DEFAULT_WHISPER_MODEL = "large-v3"
 WHISPER_VAD_MODEL = WHISPER_MODELS_DIR / "ggml-silero-v6.2.0.bin"
 ENABLE_VAD_DEFAULT = True
 
+SRT_TIGHTEN_MAX_CHARS_PER_SEC = 3.0
+SRT_TIGHTEN_TRIGGER_S = 5.0
+
 WHISPER_LANGUAGES = {
     "auto": "自動偵測",
     "ja": "日文 / Japanese",

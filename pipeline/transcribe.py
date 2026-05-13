@@ -9,11 +9,15 @@ from typing import Callable, Optional
 
 from config import (
     ENABLE_VAD_DEFAULT,
+    SRT_TIGHTEN_MAX_CHARS_PER_SEC,
+    SRT_TIGHTEN_TRIGGER_S,
     WHISPER_MODELS,
     WHISPER_MODELS_DIR,
     WHISPER_VAD_MODEL,
     find_whisper_binary,
 )
+
+from . import srt as srt_io
 
 
 class WhisperNotInstalledError(RuntimeError):
@@ -114,6 +118,15 @@ def transcribe(
         srt_path = Path(str(out_base) + ".srt")
     if not srt_path.exists():
         raise TranscriptionError(f"SRT not produced at {srt_path}")
+
+    items = srt_io.parse(srt_path)
+    n_tightened = srt_io.tighten_long_segments(
+        items,
+        max_chars_per_second=SRT_TIGHTEN_MAX_CHARS_PER_SEC,
+        trigger_s=SRT_TIGHTEN_TRIGGER_S,
+    )
+    if n_tightened:
+        srt_io.write(items, srt_path)
 
     if progress_cb:
         progress_cb(1.0, "語音辨識完成")

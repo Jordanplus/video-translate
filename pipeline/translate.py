@@ -191,6 +191,20 @@ def _translate_single(line: str, backend: str, model: str) -> str:
         return ""
 
 
+def _looks_like_repetition_hallucination(
+    text: str, min_len: int = 15, max_unique_ratio: float = 0.05
+) -> bool:
+    """Detect whisper hallucinations like '女女女...' or '痛い痛い痛い...'.
+
+    Uses unique-char-ratio so both single-char and short-ngram repetitions
+    are caught (e.g. 200 chars of '痛い' has only 2 unique chars → ratio 0.01).
+    """
+    s = text.strip()
+    if len(s) < min_len:
+        return False
+    return len(set(s)) / len(s) <= max_unique_ratio
+
+
 def translate_lines(
     lines: List[str],
     backend: str = DEFAULT_BACKEND,
@@ -206,30 +220,38 @@ def translate_lines(
     if not lines:
         return []
 
-    results: List[str] = []
+    skip_mask = [_looks_like_repetition_hallucination(s) for s in lines]
+    results: List[str] = [""] * len(lines)
     total = len(lines)
     pos = 0
 
     while pos < total:
-        batch = lines[pos:pos + batch_size]
-        prev_window = TRANSLATE_CONTEXT_WINDOW
-        prev_context = []
-        for j in range(max(0, pos - prev_window), pos):
-            prev_context.append((lines[j], results[j]))
+        batch_end = min(pos + batch_size, total)
+        batch_idx = [i for i in range(pos, batch_end) if not skip_mask[i]]
+        for i in range(pos, batch_end):
+            if skip_mask[i]:
+                results[i] = lines[i]
 
-        try:
-            translated = _translate_batch(batch, prev_context, backend, model)
-        except TranslationError:
-            translated = [""] * len(batch)
+        if batch_idx:
+            batch = [lines[i] for i in batch_idx]
+            prev_window = TRANSLATE_CONTEXT_WINDOW
+            prev_context = []
+            for j in range(max(0, pos - prev_window), pos):
+                if not skip_mask[j]:
+                    prev_context.append((lines[j], results[j]))
 
-        for k, t in enumerate(translated):
-            if not t.strip():
-                translated[k] = (
-                    _translate_single(batch[k], backend, model) or batch[k]
-                )
+            try:
+                translated = _translate_batch(batch, prev_context, backend, model)
+            except TranslationError:
+                translated = [""] * len(batch)
 
-        results.extend(translated)
-        pos += len(batch)
+            for k, t in enumerate(translated):
+                src_idx = batch_idx[k]
+                if not t.strip():
+                    t = _translate_single(lines[src_idx], backend, model) or lines[src_idx]
+                results[src_idx] = t
+
+        pos = batch_end
 
         if progress_cb:
             frac = pos / total
