@@ -1,4 +1,4 @@
-"""Full nsps-808 pipeline: audio → whisper(+VAD) → translate(mtplx) → zh SRT."""
+"""Full pipeline: audio → whisper(+VAD) → translate(mtplx) → zh SRT."""
 from __future__ import annotations
 
 import argparse
@@ -15,12 +15,6 @@ from postprocess import srt_ops as srt
 from whisper import transcribe
 from translate import translate
 
-VIDEO = PROJECT_ROOT / "inputs" / "nsps-808.mp4"
-OUT_FINAL = PROJECT_ROOT / "output" / "nsps-808-full"
-OUT_INTERMEDIATE = PROJECT_ROOT / "output" / "intermediate" / "nsps-808-full"
-OUT_FINAL.mkdir(parents=True, exist_ok=True)
-OUT_INTERMEDIATE.mkdir(parents=True, exist_ok=True)
-
 
 def stamp(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -29,32 +23,49 @@ def stamp(msg: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--video",
+        type=Path,
+        default=PROJECT_ROOT / "inputs" / "nsps-808.mp4",
+        help="path to input video",
+    )
+    parser.add_argument("--language", default="ja", help="whisper source language")
+    parser.add_argument(
         "--stop-backend",
         action="store_true",
         help="kill MTPLX after pipeline completes to free RAM",
     )
     args = parser.parse_args()
 
+    video = args.video.resolve()
+    if not video.exists():
+        stamp(f"video not found: {video}")
+        return 1
+    stem = video.stem
+    out_final = PROJECT_ROOT / "output" / f"{stem}-full"
+    out_intermediate = PROJECT_ROOT / "output" / "intermediate" / f"{stem}-full"
+    out_final.mkdir(parents=True, exist_ok=True)
+    out_intermediate.mkdir(parents=True, exist_ok=True)
+
     t_overall = time.perf_counter()
 
-    wav = OUT_INTERMEDIATE / "nsps-808.wav"
+    wav = out_intermediate / f"{stem}.wav"
     if wav.exists() and wav.stat().st_size > 0:
         stamp(f"audio cached: {wav.name} ({wav.stat().st_size//1024//1024} MB)")
     else:
         stamp(f"audio extract → {wav.name}")
         t = time.perf_counter()
-        audio.to_wav_16k_mono(VIDEO, wav)
+        audio.to_wav_16k_mono(video, wav)
         stamp(f"  done in {time.perf_counter()-t:.1f}s")
 
-    src_srt_target = OUT_FINAL / "nsps-808.source.srt"
+    src_srt_target = out_final / f"{stem}.source.srt"
     if src_srt_target.exists():
         stamp(f"whisper cached: {src_srt_target.name}")
         items = srt.parse(src_srt_target)
     else:
-        stamp("whisper (large-v3, ja, vad=True)")
+        stamp(f"whisper (large-v3, {args.language}, vad=True)")
         t = time.perf_counter()
         res = transcribe.transcribe(
-            wav, language="ja", output_dir=OUT_INTERMEDIATE, vad=True
+            wav, language=args.language, output_dir=out_intermediate, vad=True
         )
         stamp(f"  done in {time.perf_counter()-t:.1f}s  srt={res.srt_path.name}")
         items = srt.parse(res.srt_path)
@@ -78,7 +89,7 @@ def main() -> int:
     stamp(f"  done in {time.perf_counter()-t:.1f}s")
 
     zh_items = srt.replace_texts(items, zh)
-    zh_srt = OUT_FINAL / "nsps-808.zh-Hant.srt"
+    zh_srt = out_final / f"{stem}.zh-Hant.srt"
     srt.write(zh_items, zh_srt)
     stamp(f"DONE → {zh_srt.name}  segments={len(zh_items)}")
     stamp(f"TOTAL elapsed: {time.perf_counter()-t_overall:.1f}s")
